@@ -1,7 +1,8 @@
-/* 🌍 Base Layout */
+/* 🌐 Base Layout */
 body {
     margin: 0;
     overflow: hidden;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
 }
 
 .col-md-9 {
@@ -11,6 +12,44 @@ body {
 
 #map {
     z-index: 0;
+}
+
+/* 🔄 Toggle de Modo */
+.mode-toggle-btn {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 1000;
+    background: rgba(0, 0, 0, 0.85);
+    border: 2px solid #5cfaff;
+    border-radius: 50px;
+    padding: 12px 24px;
+    color: #5cfaff;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.3s ease;
+    backdrop-filter: blur(10px);
+    box-shadow: 0 4px 20px rgba(92, 250, 255, 0.3);
+}
+
+.mode-toggle-btn:hover {
+    background: rgba(92, 250, 255, 0.2);
+    border-color: #fff;
+    color: #fff;
+    transform: scale(1.05);
+}
+
+.mode-toggle-btn:active {
+    transform: scale(0.95);
+}
+
+.mode-icon {
+    display: flex;
+    align-items: center;
 }
 
 /* 🖼️ Canvas Layer */
@@ -136,5 +175,182 @@ canvas#flow {
         color: #fff;
         transform: scale(1);
         opacity: 1;
+    }
+}
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   📱 RESPONSIVE - MOBILE & PORTRAIT
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+
+/* 📱 Móviles y Tablets (hasta 768px) */
+@media (max-width: 768px) {
+    /* Ocultar panel lateral en móviles por defecto */
+    .explore-mode #explore-panel {
+        position: fixed;
+        bottom: -100%;
+        left: 0;
+        width: 100%;
+        height: 50vh;
+        z-index: 900;
+        transition: bottom 0.3s ease;
+        border-top-left-radius: 20px;
+        border-top-right-radius: 20px;
+        box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.5);
+    }
+
+    /* Mostrar panel cuando esté activo */
+    .explore-mode #explore-panel.active {
+        bottom: 0;
+    }
+
+    /* Mapa ocupa toda la pantalla */
+    .explore-mode #map-container {
+        width: 100% !important;
+        height: 100vh !important;
+    }
+
+    /* Ajustar toggle button */
+    .mode-toggle-btn {
+        top: 10px;
+        right: 10px;
+        padding: 10px 18px;
+        font-size: 12px;
+    }
+
+    /* Labels más pequeños */
+    .relleno-label {
+        font-size: 10px;
+        padding: 3px 6px;
+    }
+
+    .comuna-pin-label {
+        font-size: 0.65em;
+    }
+
+    /* Tags más compactos */
+    .comuna-tag {
+        font-size: 0.75em;
+        padding: 4px 10px;
+    }
+}
+
+/* 📱 Portrait Mode (vertical) específico */
+@media (orientation: portrait) {
+    /* En modo story, aprovecha todo el alto */
+    .story-mode #map-container {
+        height: 100vh !important;
+    }
+
+    /* Ajustar UI del story para vertical */
+    .story-mode .story-chapter-content {
+        max-width: 90%;
+        margin: 0 auto;
+    }
+
+    .story-mode .story-controls {
+        padding: 15px 20px;
+    }
+
+    /* Dots de capítulos en vertical */
+    .story-mode .story-chapters-indicator {
+        flex-direction: column;
+        right: 10px;
+        top: 50%;
+        transform: translateY(-50%);
+        gap: 10px;
+    }
+}
+
+/* 🖥️ Desktop - Landscape (horizontal) */
+@media (orientation: landscape) and (min-width: 769px) {
+    /* Layout normal de desktop */
+    .explore-mode #explore-panel {
+        display: block !important;
+    }
+
+    .explore-mode #map-container {
+        width: 75% !important;
+    }
+}
+
+/* 📱 Móviles muy pequeños (hasta 480px) */
+@media (max-width: 480px) {
+    .mode-toggle-btn {
+        padding: 8px 14px;
+        font-size: 11px;
+    }
+
+    .mode-text {
+        display: none; /* Solo mostrar ícono */
+    }
+
+    .relleno-label {
+        font-size: 9px;
+        padding: 2px 4px;
+    }
+
+    /* Story content más compacto */
+    .story-title {
+        font-size: 1.2em !important;
+    }
+
+    .story-description {
+        font-size: 0.9em !important;
+    }
+}
+
+/* 🎨 Ajustes específicos para modo Story en móviles */
+@media (max-width: 768px) {
+    .story-mode #explore-panel {
+        display: none !important; /* Siempre oculto en story mode */
+    }
+
+    .story-mode #map-container {
+        width: 100% !important;
+        height: 100vh !important;
+    }
+
+    .story-mode .mode-toggle-btn {
+        background: rgba(0, 0, 0, 0.6);
+        border-color: rgba(92, 250, 255, 0.6);
+    }
+}
+
+/* 🎯 Touch gestures - Mejorar áreas táctiles */
+@media (hover: none) and (pointer: coarse) {
+    /* Detecta dispositivos touch */
+    .comuna-pin-label {
+        padding: 6px 12px; /* Más grande para touch */
+    }
+
+    .comuna-tag {
+        padding: 8px 14px;
+        font-size: 0.9em;
+    }
+
+    .story-btn {
+        min-width: 48px;
+        min-height: 48px; /* Tamaño mínimo recomendado para touch */
+    }
+
+    .chapter-dot {
+        width: 16px !important;
+        height: 16px !important;
+    }
+}
+
+/* 🌓 Modo oscuro adicional (si el SO lo tiene) */
+@media (prefers-color-scheme: dark) {
+    body {
+        background-color: #000;
+    }
+}
+
+/* 🔋 Reducir animaciones si usuario prefiere */
+@media (prefers-reduced-motion: reduce) {
+    * {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
     }
 }
