@@ -136,6 +136,20 @@
       exploreIcon.style.display = 'block';
       storyIcon.style.display = 'none';
 
+      // 🔧 FIX: Forzar resize del mapa después de cambiar layout
+      setTimeout(() => {
+        if (window.visualizationAPI?.map) {
+          window.visualizationAPI.map.resize();
+          console.log('✅ Mapa redimensionado para modo story');
+        }
+      }, 100);
+
+      setTimeout(() => {
+        if (window.visualizationAPI?.map) {
+          window.visualizationAPI.map.resize();
+        }
+      }, 300);
+
       // Iniciar storytelling
       initStory();
 
@@ -149,6 +163,14 @@
       modeText.textContent = 'Historia';
       exploreIcon.style.display = 'none';
       storyIcon.style.display = 'block';
+
+      // 🔧 FIX: Forzar resize del mapa después de cambiar layout
+      setTimeout(() => {
+        if (window.visualizationAPI?.map) {
+          window.visualizationAPI.map.resize();
+          console.log('✅ Mapa redimensionado para modo explore');
+        }
+      }, 100);
     }
 
     currentMode = mode;
@@ -169,6 +191,16 @@
 
   // Aplicar modo inicial
   applyMode(currentMode);
+
+  // 🔧 FIX: Escuchar cuando el mapa esté listo y forzar resize
+  window.addEventListener('visualizationReady', () => {
+    setTimeout(() => {
+      if (window.visualizationAPI?.map) {
+        window.visualizationAPI.map.resize();
+        console.log('✅ Resize final después de visualizationReady');
+      }
+    }, 200);
+  });
 </script>
 
 <script type="module" src="main.js"></script>

@@ -17,7 +17,12 @@ const labelContainer = document.getElementById('label-container');
 let flows = [];
 let activeRellenos = [];
 let activeComunaFilter = null;
-let animationPaused = false; // ✨ Control de pausa para storytelling
+let animationPaused = false;
+
+// 🚀 Performance: Cache de proyecciones
+let projectionCache = new Map();
+let lastCameraState = null;
+let needsReprojection = true;
 
 export const rellenoColors = {
     "Relleno Cemarc Penco": "#FFF3A3",
@@ -36,6 +41,49 @@ function resizeCanvas() {
     }
 }
 
+// 🚀 Performance: Verificar si necesitamos re-proyectar
+function cameraStateChanged() {
+    const current = {
+        zoom: map.getZoom(),
+        center: map.getCenter(),
+        bearing: map.getBearing(),
+        pitch: map.getPitch()
+    };
+
+    if (!lastCameraState) {
+        lastCameraState = current;
+        return true;
+    }
+
+    // Tolerancia para evitar re-proyecciones innecesarias
+    const zoomChanged = Math.abs(current.zoom - lastCameraState.zoom) > 0.01;
+    const centerChanged = Math.abs(current.center.lng - lastCameraState.center.lng) > 0.001 ||
+        Math.abs(current.center.lat - lastCameraState.center.lat) > 0.001;
+    const bearingChanged = Math.abs(current.bearing - lastCameraState.bearing) > 0.5;
+    const pitchChanged = Math.abs(current.pitch - lastCameraState.pitch) > 0.5;
+
+    if (zoomChanged || centerChanged || bearingChanged || pitchChanged) {
+        lastCameraState = current;
+        return true;
+    }
+
+    return false;
+}
+
+// 🚀 Performance: Pre-proyectar un path completo
+function projectPath(path, flowId) {
+    const cacheKey = `${flowId}_${lastCameraState?.zoom || 0}`;
+
+    if (projectionCache.has(cacheKey) && !needsReprojection) {
+        return projectionCache.get(cacheKey);
+    }
+
+    const projected = path.map(([lng, lat]) => map.project({ lng, lat }));
+    projectionCache.set(cacheKey, projected);
+
+    return projected;
+}
+
 function hexToRGBA(hex, opacity) {
     const bigint = parseInt(hex.replace("#", ""), 16);
     const r = (bigint >> 16) & 255;
@@ -50,15 +98,13 @@ function getTierConfig(tons) {
     return { tier: 1 };
 }
 
-
-/* 🚚 Construcción de flujos
-   - Cada flow tiene: color, path o start/end, y una partícula (t) que recorre 0..1 */
+/* 🚚 Construcción de flujos */
 function createFlows(selectedRellenos = []) {
     flows = [];
     const zoomLevel = map.getZoom();
     const simplified = zoomLevel < 8.06;
 
-    garbageData.forEach(data => {
+    garbageData.forEach((data, dataIndex) => {
         if (selectedRellenos.length && !selectedRellenos.includes(data.relleno)) return;
         if (activeComunaFilter && !activeComunaFilter.includes(data.comuna)) return;
 
@@ -67,10 +113,12 @@ function createFlows(selectedRellenos = []) {
         const color = rellenoColors[data.relleno] || "#ffffff";
         const { tier } = getTierConfig(data.toneladas);
         const arcCount = simplified ? 1 : tier;
-        const path = routes[data.route]; // puede ser undefined, usaremos línea recta
+        const path = routes[data.route];
 
         for (let i = 0; i < arcCount; i++) {
+            const flowId = `${data.route}_${dataIndex}_${i}`;
             flows.push({
+                id: flowId,
                 startLngLat,
                 endLngLat,
                 color,
@@ -78,38 +126,41 @@ function createFlows(selectedRellenos = []) {
                 toneladas: data.toneladas,
                 path,
                 particle: null,
-                speed: 0.002 // puedes personalizar por flow
+                speed: 0.002,
+                projectedPath: null
             });
         }
 
-        // Flujos de reciclaje (reversa)
         if (data.reciclaje && data.reciclaje > 0) {
             const recicloTier = getTierConfig(data.reciclaje).tier;
             const recicloColor = "#8EE89E";
             const recicloArcs = simplified ? 1 : recicloTier;
 
             for (let i = 0; i < recicloArcs; i++) {
+                const flowId = `${data.route}_recycle_${dataIndex}_${i}`;
                 flows.push({
+                    id: flowId,
                     startLngLat: endLngLat,
                     endLngLat: startLngLat,
                     color: recicloColor,
                     tier: recicloTier,
                     toneladas: data.reciclaje,
-                    path: routes[data.route], // si tienes una ruta dedicada, cámbiala aquí
+                    path: routes[data.route],
                     particle: null,
-                    speed: 0.0022
+                    speed: 0.0022,
+                    projectedPath: null
                 });
             }
         }
     });
+
+    needsReprojection = true;
 }
 
 // 🗺️ Etiquetas de comunas y rellenos
-
 function updateLabels(activeRellenos = []) {
     labelContainer.innerHTML = '';
 
-    // Rellenos
     Object.entries(rellenoCoords).forEach(([name, coord]) => {
         if (activeRellenos.length && !activeRellenos.includes(name)) return;
         const pos = map.project(coord);
@@ -124,7 +175,6 @@ function updateLabels(activeRellenos = []) {
     const zoom = map.getZoom();
     if (zoom < 8.5) return;
 
-    // Comunas
     const displayedComunas = new Set();
     garbageData.forEach(data => {
         if (activeRellenos.length && !activeRellenos.includes(data.relleno)) return;
@@ -171,32 +221,38 @@ function updateLabels(activeRellenos = []) {
     });
 }
 
-
-/* 🌌 Trayectos persistentes
-   - Se dibujan tenues cada frame para sincronizar con pan/zoom/tilt/rotate
-   - Si quieres, puedes cachear paths proyectados en flows para menos trabajo */
-
+/* 🌌 Trayectos persistentes - Optimizado con cache */
 function drawBaseRoutes() {
     ctx.globalCompositeOperation = "source-over";
     ctx.lineCap = "round";
     ctx.lineJoin = "round";
-
-    // Fondo transparente del frame
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // Líneas base tenues
+    const cameraChanged = cameraStateChanged();
+    if (cameraChanged) {
+        needsReprojection = true;
+        projectionCache.clear();
+    }
+
     ctx.lineWidth = 2;
     ctx.globalAlpha = 0.18;
 
     flows.forEach(flow => {
-        const projectedPath = flow.path
-            ? flow.path.map(([lng, lat]) => map.project({ lng, lat }))
-            : [map.project(flow.startLngLat), map.project(flow.endLngLat)];
+        if (!flow.projectedPath || needsReprojection) {
+            if (flow.path) {
+                flow.projectedPath = projectPath(flow.path, flow.id);
+            } else {
+                flow.projectedPath = [
+                    map.project(flow.startLngLat),
+                    map.project(flow.endLngLat)
+                ];
+            }
+        }
 
-        if (!projectedPath || projectedPath.length < 2) return;
+        if (!flow.projectedPath || flow.projectedPath.length < 2) return;
 
         ctx.beginPath();
-        projectedPath.forEach((pt, i) => {
+        flow.projectedPath.forEach((pt, i) => {
             if (i === 0) ctx.moveTo(pt.x, pt.y);
             else ctx.lineTo(pt.x, pt.y);
         });
@@ -205,15 +261,11 @@ function drawBaseRoutes() {
         ctx.stroke();
     });
 
+    needsReprojection = false;
     ctx.globalAlpha = 1;
 }
 
-// ———————————————————————————————————————————————————————
-/* ✨ Animación de partículas
-   - Una partícula recorre 0..1 del path
-   - Glow brillante con shadowBlur y composite lighter
-   - Rápida: solo dibuja partículas, las rutas ya están en base */
-
+/* ✨ Animación de partículas - Optimizada */
 function animateWithPause() {
     const MAX_TRAIL = 80;
     const PARTICLE_RADIUS = 3;
@@ -221,20 +273,16 @@ function animateWithPause() {
 
     function frame() {
         resizeCanvas();
-
-        // 🔹 Primero dibujar rutas base tenues
         drawBaseRoutes();
 
-        // 🎬 Solo animar si no está pausado
         if (!animationPaused) {
             flows.forEach(flow => {
-                const projectedPath = flow.path
-                    ? flow.path.map(([lng, lat]) => map.project({ lng, lat }))
-                    : [map.project(flow.startLngLat), map.project(flow.endLngLat)];
-                if (projectedPath.length < 2) return;
+                const projectedPath = flow.projectedPath;
+
+                if (!projectedPath || projectedPath.length < 2) return;
 
                 if (!flow.particle) {
-                    flow.particle = { t: Math.random() }; // 👈 desfase inicial aleatorio
+                    flow.particle = { t: Math.random() };
                 }
 
                 const speed = flow.speed ?? 0.002;
@@ -250,14 +298,12 @@ function animateWithPause() {
                 const x = p1.x + (p2.x - p1.x) * segmentT;
                 const y = p1.y + (p2.y - p1.y) * segmentT;
 
-                // 🚀 Estela: tramo desde inicio hasta posición actual
                 const trail = projectedPath.slice(0, index + 1);
                 trail.push({ x, y });
                 const visibleTrail = trail.slice(Math.max(0, trail.length - MAX_TRAIL));
 
                 ctx.globalCompositeOperation = "lighter";
 
-                // Estela
                 ctx.lineWidth = 6;
                 ctx.shadowBlur = SHADOW_BLUR;
                 ctx.shadowColor = flow.color;
@@ -271,7 +317,6 @@ function animateWithPause() {
                 });
                 ctx.stroke();
 
-                // Partícula
                 ctx.beginPath();
                 ctx.arc(x, y, PARTICLE_RADIUS, 0, Math.PI * 2);
                 ctx.fillStyle = flow.color;
@@ -280,7 +325,6 @@ function animateWithPause() {
                 ctx.shadowColor = flow.color;
                 ctx.fill();
 
-                // Reset
                 ctx.shadowBlur = 0;
                 ctx.globalAlpha = 1;
                 ctx.globalCompositeOperation = "source-over";
@@ -294,10 +338,7 @@ function animateWithPause() {
     requestAnimationFrame(frame);
 }
 
-
-// ———————————————————————————————————————————————————————
 // ✨ API Pública para storytelling y controles externos
-
 export const visualizationAPI = {
     map: map,
 
@@ -323,6 +364,12 @@ export const visualizationAPI = {
         flows.forEach(f => { f.particle = null; });
     },
 
+    invalidateProjectionCache() {
+        projectionCache.clear();
+        needsReprojection = true;
+        flows.forEach(f => { f.projectedPath = null; });
+    },
+
     getCameraState() {
         return {
             center: map.getCenter(),
@@ -336,7 +383,6 @@ export const visualizationAPI = {
         map.jumpTo(state);
     },
 
-    // Exposición de datos para análisis
     getFlows() {
         return flows;
     },
@@ -346,33 +392,38 @@ export const visualizationAPI = {
             rellenos: activeRellenos,
             comunas: activeComunaFilter
         };
+    },
+
+    getPerformanceStats() {
+        return {
+            flowCount: flows.length,
+            cacheSize: projectionCache.size,
+            cameraState: lastCameraState
+        };
     }
 };
 
-
-// ———————————————————————————————————————————————————————
-// 🔗 API para paneles/controles
-
+// 🔗 Mantener compatibilidad con panel.js existente
 window.updateFlowsForPanel = function(selectedRellenos) {
-    activeRellenos = selectedRellenos || [];
-    createFlows(activeRellenos, map.getZoom());
+    visualizationAPI.updateFlows(selectedRellenos);
 };
 
-// Filtro por comunas
 window.filterByComuna = function(comunaNames) {
-    activeComunaFilter = comunaNames || null;
-    createFlows(activeRellenos, map.getZoom());
+    visualizationAPI.filterComunas(comunaNames);
 };
-
 
 // 🚀 Inicialización
 map.on('load', () => {
+    // 🔧 FIX: Forzar resize del mapa en desktop
+    setTimeout(() => {
+        map.resize();
+    }, 100);
+
     resizeCanvas();
     createFlows(activeRellenos, map.getZoom());
     drawBaseRoutes();
     animateWithPause();
 
-    // 📢 Emitir evento para que story.js o panel.js sepan que estamos listos
     window.dispatchEvent(new CustomEvent('visualizationReady', {
         detail: { map, api: visualizationAPI }
     }));
@@ -383,12 +434,17 @@ map.on('load', () => {
 // 🔄 Sincronización con interacciones del mapa
 ['zoom', 'move', 'rotate', 'pitch'].forEach(evt => {
     map.on(evt, () => {
-        // Reinicia partículas para evitar saltos raros tras reproyección
         flows.forEach(f => { f.particle = null; });
         createFlows(activeRellenos, map.getZoom());
-        // La animación redibuja drawBaseRoutes() cada frame, pero lo hacemos
-        // acá también para que la base no “parpadee” en el primer frame tras el evento.
+        needsReprojection = true;
         drawBaseRoutes();
         updateLabels(activeRellenos);
     });
+});
+
+// 🔧 FIX: Resize cuando la ventana cambia de tamaño
+window.addEventListener('resize', () => {
+    map.resize();
+    resizeCanvas();
+    visualizationAPI.invalidateProjectionCache();
 });
