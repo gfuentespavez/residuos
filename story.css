@@ -1,0 +1,443 @@
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   📖 STORYTELLING STYLES
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+
+/* 🎬 Contenedor principal del story */
+.story-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100vh;
+    z-index: 100;
+    pointer-events: none;
+    display: flex;
+    flex-direction: column;
+}
+
+.story-container > * {
+    pointer-events: auto;
+}
+
+/* ━━━━━ Barra de Progreso ━━━━━ */
+.story-progress-wrapper {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    padding: 20px;
+    background: linear-gradient(180deg, rgba(0,0,0,0.8) 0%, transparent 100%);
+    z-index: 101;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.story-progress-bar {
+    flex: 1;
+    height: 4px;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 2px;
+    overflow: hidden;
+}
+
+.story-progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #5cfaff, #00ff99);
+    border-radius: 2px;
+    transition: width 0.5s ease;
+    box-shadow: 0 0 10px #5cfaff;
+}
+
+.story-progress-text {
+    color: #fff;
+    font-size: 14px;
+    font-weight: 600;
+    white-space: nowrap;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+}
+
+/* ━━━━━ Contenido del Capítulo ━━━━━ */
+.story-chapter-content {
+    position: absolute;
+    bottom: 120px;
+    left: 50%;
+    transform: translateX(-50%);
+    max-width: 600px;
+    width: 90%;
+    padding: 30px;
+    background: rgba(0, 0, 0, 0.85);
+    backdrop-filter: blur(10px);
+    border-radius: 20px;
+    border: 1px solid rgba(92, 250, 255, 0.3);
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6);
+    opacity: 0;
+    transition: opacity 0.5s ease, transform 0.5s ease;
+    z-index: 102;
+}
+
+.story-chapter-content.visible {
+    opacity: 1;
+}
+
+.story-title {
+    color: #5cfaff;
+    font-size: 1.8em;
+    font-weight: 700;
+    margin: 0 0 15px 0;
+    line-height: 1.3;
+}
+
+.story-description {
+    color: #fff;
+    font-size: 1em;
+    line-height: 1.6;
+    margin: 0;
+    opacity: 0.95;
+}
+
+/* ━━━━━ Overlay de Estadísticas ━━━━━ */
+.story-stats-overlay {
+    position: absolute;
+    top: 100px;
+    right: 30px;
+    padding: 20px;
+    background: rgba(0, 0, 0, 0.8);
+    backdrop-filter: blur(10px);
+    border-radius: 15px;
+    border: 2px solid #5cfaff;
+    box-shadow: 0 8px 32px rgba(92, 250, 255, 0.3);
+    opacity: 0;
+    transform: translateX(20px);
+    transition: opacity 0.5s ease, transform 0.5s ease;
+    z-index: 103;
+}
+
+.story-stats-overlay.visible {
+    opacity: 1;
+    transform: translateX(0);
+}
+
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 15px;
+}
+
+.stat-item {
+    text-align: center;
+}
+
+.stat-value {
+    font-size: 2em;
+    font-weight: 700;
+    color: #5cfaff;
+    line-height: 1;
+    text-shadow: 0 0 10px rgba(92, 250, 255, 0.5);
+}
+
+.stat-label {
+    font-size: 0.75em;
+    color: rgba(255, 255, 255, 0.7);
+    margin-top: 5px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.stat-item-recycle .stat-value {
+    color: #8EE89E;
+    text-shadow: 0 0 10px rgba(142, 232, 158, 0.5);
+}
+
+.stat-highlight {
+    margin-top: 15px;
+    padding-top: 15px;
+    border-top: 1px solid rgba(255, 255, 255, 0.2);
+    color: #ffcc05;
+    font-weight: 600;
+    font-size: 0.9em;
+    text-align: center;
+}
+
+/* ━━━━━ Controles de Navegación ━━━━━ */
+.story-controls {
+    position: absolute;
+    bottom: 30px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    padding: 10px 20px;
+    background: rgba(0, 0, 0, 0.8);
+    backdrop-filter: blur(10px);
+    border-radius: 50px;
+    border: 2px solid rgba(92, 250, 255, 0.5);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+    z-index: 104;
+}
+
+.story-btn {
+    background: transparent;
+    border: none;
+    color: #5cfaff;
+    cursor: pointer;
+    padding: 10px;
+    border-radius: 50%;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.story-btn:hover {
+    background: rgba(92, 250, 255, 0.2);
+    transform: scale(1.1);
+}
+
+.story-btn:active {
+    transform: scale(0.95);
+}
+
+.story-btn-play {
+    background: #5cfaff;
+    color: #000;
+    padding: 12px;
+}
+
+.story-btn-play:hover {
+    background: #00ff99;
+}
+
+/* ━━━━━ Indicadores de Capítulos (Dots) ━━━━━ */
+.story-chapters-indicator {
+    position: absolute;
+    right: 30px;
+    bottom: 50%;
+    transform: translateY(50%);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    z-index: 105;
+}
+
+.chapter-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.3);
+    border: 2px solid transparent;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.chapter-dot:hover {
+    background: rgba(92, 250, 255, 0.5);
+    transform: scale(1.2);
+}
+
+.chapter-dot.active {
+    background: #5cfaff;
+    border-color: #fff;
+    box-shadow: 0 0 10px #5cfaff;
+    transform: scale(1.3);
+}
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   📱 RESPONSIVE - MOBILE STORY MODE
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+
+@media (max-width: 768px) {
+    /* Progreso más compacto */
+    .story-progress-wrapper {
+        padding: 15px;
+        gap: 10px;
+    }
+
+    .story-progress-text {
+        font-size: 12px;
+    }
+
+    /* Contenido del capítulo adaptado */
+    .story-chapter-content {
+        bottom: 100px;
+        width: 85%;
+        padding: 20px;
+    }
+
+    .story-title {
+        font-size: 1.4em;
+    }
+
+    .story-description {
+        font-size: 0.9em;
+    }
+
+    /* Stats en la parte superior en móvil */
+    .story-stats-overlay {
+        top: 70px;
+        right: 15px;
+        left: 15px;
+        padding: 15px;
+    }
+
+    .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 10px;
+    }
+
+    .stat-value {
+        font-size: 1.5em;
+    }
+
+    .stat-label {
+        font-size: 0.7em;
+    }
+
+    /* Controles más grandes para touch */
+    .story-controls {
+        bottom: 20px;
+        padding: 8px 15px;
+        gap: 12px;
+    }
+
+    .story-btn {
+        padding: 12px;
+        min-width: 48px;
+        min-height: 48px;
+    }
+
+    .story-btn-play {
+        padding: 14px;
+    }
+
+    /* Dots más accesibles */
+    .story-chapters-indicator {
+        right: 15px;
+        gap: 10px;
+    }
+
+    .chapter-dot {
+        width: 10px;
+        height: 10px;
+    }
+}
+
+/* 📱 Portrait específico */
+@media (orientation: portrait) {
+    .story-chapter-content {
+        bottom: 140px;
+        max-width: 90%;
+    }
+
+    /* Stats arriba del todo */
+    .story-stats-overlay {
+        top: 60px;
+    }
+
+    /* Dots a la derecha verticalmente */
+    .story-chapters-indicator {
+        flex-direction: column;
+        right: 10px;
+        bottom: 50%;
+        transform: translateY(50%);
+    }
+}
+
+/* 🖥️ Desktop - Landscape */
+@media (orientation: landscape) and (min-width: 769px) {
+    .story-chapter-content {
+        max-width: 700px;
+        padding: 40px;
+    }
+
+    .story-title {
+        font-size: 2.2em;
+    }
+
+    .story-stats-overlay {
+        right: 50px;
+        top: 120px;
+    }
+
+    .stats-grid {
+        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    }
+}
+
+/* 📱 Móviles muy pequeños */
+@media (max-width: 480px) {
+    .story-chapter-content {
+        bottom: 90px;
+        padding: 15px;
+    }
+
+    .story-title {
+        font-size: 1.2em;
+    }
+
+    .story-description {
+        font-size: 0.85em;
+    }
+
+    .story-stats-overlay {
+        top: 60px;
+        right: 10px;
+        left: 10px;
+        padding: 12px;
+    }
+
+    .stat-value {
+        font-size: 1.3em;
+    }
+
+    .story-controls {
+        bottom: 15px;
+        padding: 6px 12px;
+    }
+}
+
+/* ━━━━━ Animaciones ━━━━━ */
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes pulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.5;
+    }
+}
+
+/* Pulse en el dot activo */
+.chapter-dot.active {
+    animation: pulse 2s ease-in-out infinite;
+}
+
+/* ━━━━━ Accesibilidad ━━━━━ */
+.story-btn:focus-visible,
+.chapter-dot:focus-visible {
+    outline: 2px solid #5cfaff;
+    outline-offset: 4px;
+}
+
+/* Reducir movimiento si el usuario lo prefiere */
+@media (prefers-reduced-motion: reduce) {
+    .story-chapter-content,
+    .story-stats-overlay,
+    .story-progress-fill,
+    .story-btn,
+    .chapter-dot {
+        transition-duration: 0.01ms !important;
+        animation-duration: 0.01ms !important;
+    }
+}
