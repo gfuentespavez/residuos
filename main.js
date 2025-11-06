@@ -17,6 +17,7 @@ const labelContainer = document.getElementById('label-container');
 let flows = [];
 let activeRellenos = [];
 let activeComunaFilter = null;
+let animationPaused = false; // ✨ Control de pausa para storytelling
 
 export const rellenoColors = {
     "Relleno Cemarc Penco": "#FFF3A3",
@@ -213,7 +214,7 @@ function drawBaseRoutes() {
    - Glow brillante con shadowBlur y composite lighter
    - Rápida: solo dibuja partículas, las rutas ya están en base */
 
-function animate() {
+function animateWithPause() {
     const MAX_TRAIL = 80;
     const PARTICLE_RADIUS = 3;
     const SHADOW_BLUR = 20;
@@ -224,64 +225,67 @@ function animate() {
         // 🔹 Primero dibujar rutas base tenues
         drawBaseRoutes();
 
-        flows.forEach(flow => {
-            const projectedPath = flow.path
-                ? flow.path.map(([lng, lat]) => map.project({ lng, lat }))
-                : [map.project(flow.startLngLat), map.project(flow.endLngLat)];
-            if (projectedPath.length < 2) return;
+        // 🎬 Solo animar si no está pausado
+        if (!animationPaused) {
+            flows.forEach(flow => {
+                const projectedPath = flow.path
+                    ? flow.path.map(([lng, lat]) => map.project({ lng, lat }))
+                    : [map.project(flow.startLngLat), map.project(flow.endLngLat)];
+                if (projectedPath.length < 2) return;
 
-            if (!flow.particle) {
-                flow.particle = { t: Math.random() }; // 👈 desfase inicial aleatorio
-            }
+                if (!flow.particle) {
+                    flow.particle = { t: Math.random() }; // 👈 desfase inicial aleatorio
+                }
 
-            const speed = flow.speed ?? 0.002;
-            flow.particle.t = (flow.particle.t + speed) % 1;
+                const speed = flow.speed ?? 0.002;
+                flow.particle.t = (flow.particle.t + speed) % 1;
 
-            const totalSegments = projectedPath.length - 1;
-            const progress = flow.particle.t * totalSegments;
-            const index = Math.floor(progress);
-            const segmentT = progress - index;
+                const totalSegments = projectedPath.length - 1;
+                const progress = flow.particle.t * totalSegments;
+                const index = Math.floor(progress);
+                const segmentT = progress - index;
 
-            const p1 = projectedPath[index];
-            const p2 = projectedPath[index + 1] || projectedPath[projectedPath.length - 1];
-            const x = p1.x + (p2.x - p1.x) * segmentT;
-            const y = p1.y + (p2.y - p1.y) * segmentT;
+                const p1 = projectedPath[index];
+                const p2 = projectedPath[index + 1] || projectedPath[projectedPath.length - 1];
+                const x = p1.x + (p2.x - p1.x) * segmentT;
+                const y = p1.y + (p2.y - p1.y) * segmentT;
 
-            // 🚀 Estela: tramo desde inicio hasta posición actual
-            const trail = projectedPath.slice(0, index + 1);
-            trail.push({ x, y });
-            const visibleTrail = trail.slice(Math.max(0, trail.length - MAX_TRAIL));
+                // 🚀 Estela: tramo desde inicio hasta posición actual
+                const trail = projectedPath.slice(0, index + 1);
+                trail.push({ x, y });
+                const visibleTrail = trail.slice(Math.max(0, trail.length - MAX_TRAIL));
 
-            ctx.globalCompositeOperation = "lighter";
+                ctx.globalCompositeOperation = "lighter";
 
-            // Estela
-            ctx.lineWidth = 6;
-            ctx.shadowBlur = SHADOW_BLUR;
-            ctx.shadowColor = flow.color;
-            ctx.strokeStyle = flow.color;
-            ctx.globalAlpha = 0.4;
+                // Estela
+                ctx.lineWidth = 6;
+                ctx.shadowBlur = SHADOW_BLUR;
+                ctx.shadowColor = flow.color;
+                ctx.strokeStyle = flow.color;
+                ctx.globalAlpha = 0.4;
 
-            ctx.beginPath();
-            visibleTrail.forEach((pt, i) => {
-                if (i === 0) ctx.moveTo(pt.x, pt.y);
-                else ctx.lineTo(pt.x, pt.y);
+                ctx.beginPath();
+                visibleTrail.forEach((pt, i) => {
+                    if (i === 0) ctx.moveTo(pt.x, pt.y);
+                    else ctx.lineTo(pt.x, pt.y);
+                });
+                ctx.stroke();
+
+                // Partícula
+                ctx.beginPath();
+                ctx.arc(x, y, PARTICLE_RADIUS, 0, Math.PI * 2);
+                ctx.fillStyle = flow.color;
+                ctx.globalAlpha = 1;
+                ctx.shadowBlur = SHADOW_BLUR + 10;
+                ctx.shadowColor = flow.color;
+                ctx.fill();
+
+                // Reset
+                ctx.shadowBlur = 0;
+                ctx.globalAlpha = 1;
+                ctx.globalCompositeOperation = "source-over";
             });
-            ctx.stroke();
-
-            // Partícula
-            ctx.beginPath();
-            ctx.arc(x, y, PARTICLE_RADIUS, 0, Math.PI * 2);
-            ctx.fillStyle = flow.color;
-            ctx.globalAlpha = 1;
-            ctx.shadowBlur = SHADOW_BLUR + 10;
-            ctx.shadowColor = flow.color;
-            ctx.fill();
-
-            // Reset
-            ctx.shadowBlur = 0;
-            ctx.globalAlpha = 1;
-            ctx.globalCompositeOperation = "source-over";
-        });
+        }
 
         updateLabels(activeRellenos);
         requestAnimationFrame(frame);
@@ -289,6 +293,61 @@ function animate() {
 
     requestAnimationFrame(frame);
 }
+
+
+// ———————————————————————————————————————————————————————
+// ✨ API Pública para storytelling y controles externos
+
+export const visualizationAPI = {
+    map: map,
+
+    updateFlows(selectedRellenos) {
+        activeRellenos = selectedRellenos || [];
+        createFlows(activeRellenos);
+    },
+
+    filterComunas(comunaNames) {
+        activeComunaFilter = comunaNames || null;
+        createFlows(activeRellenos);
+    },
+
+    pauseAnimation() {
+        animationPaused = true;
+    },
+
+    resumeAnimation() {
+        animationPaused = false;
+    },
+
+    resetParticles() {
+        flows.forEach(f => { f.particle = null; });
+    },
+
+    getCameraState() {
+        return {
+            center: map.getCenter(),
+            zoom: map.getZoom(),
+            pitch: map.getPitch(),
+            bearing: map.getBearing()
+        };
+    },
+
+    setCameraState(state) {
+        map.jumpTo(state);
+    },
+
+    // Exposición de datos para análisis
+    getFlows() {
+        return flows;
+    },
+
+    getActiveFilters() {
+        return {
+            rellenos: activeRellenos,
+            comunas: activeComunaFilter
+        };
+    }
+};
 
 
 // ———————————————————————————————————————————————————————
@@ -311,7 +370,14 @@ map.on('load', () => {
     resizeCanvas();
     createFlows(activeRellenos, map.getZoom());
     drawBaseRoutes();
-    animate();
+    animateWithPause();
+
+    // 📢 Emitir evento para que story.js o panel.js sepan que estamos listos
+    window.dispatchEvent(new CustomEvent('visualizationReady', {
+        detail: { map, api: visualizationAPI }
+    }));
+
+    console.log('✅ Visualización lista');
 });
 
 // 🔄 Sincronización con interacciones del mapa
